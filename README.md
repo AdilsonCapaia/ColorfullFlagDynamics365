@@ -3,7 +3,7 @@ A Dynamics 365 module to distinguish a record with a color flag by status reason
 
 ## What are we looking for ?
 
-### Basicly we cant to solve this problem 
+### Basicly we want to solve this problem 
   As a User or Synstem customiser I would like to distinguish a record with a color flag by status
 For example, each new created contact with a *New* status reason, could be Orange,
 User with status reason *Validated*, could be Green. 
