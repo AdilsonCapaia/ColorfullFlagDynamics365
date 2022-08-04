@@ -15,7 +15,6 @@ namespace ColorfullFlagIconDynamics365Engine
         public const string ASSEMBLY_NAME = "ColorfullFlagIconDynamics365Engine";
         public const string GENARAL_LOGIC_PLUGIN_TYPE = "ColorfullFlagIconDynamics365Engine.FlagIconLogicExecutorCreateUpdate";
 
-
         public void Execute(IServiceProvider serviceProvider)
         {
             IPluginExecutionContext context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
@@ -23,8 +22,7 @@ namespace ColorfullFlagIconDynamics365Engine
             IOrganizationService service = serviceFactory.CreateOrganizationService(context.UserId);
 
             var currentEntity = context.InputParameters["Target"] as Entity; // Configuration Entity
-           
-            
+
             var currentConfig = service.Retrieve(currentEntity.LogicalName, currentEntity.Id, new ColumnSet("clfi_entitylogicalname", "clfi_iconlogicalfieldname", "clfi_statuslogicalfieldname"));
             var entityLogicalName = currentConfig.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
             var iconLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_iconlogicalfieldname").ToLower();
@@ -33,29 +31,19 @@ namespace ColorfullFlagIconDynamics365Engine
             {
                 if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
                 {
-
                     //Main function inside which other function has been called to add plugin step
-                    //
                     Guid stepId = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40, statusLogicaFieldName,"Update");
-                    //create image for the above step
-                    /*CreateImage(stepId, service);
-                    SdkMessageStep(ASSEMBLY_NAME, SECOND_PLUGIN_TYPE_NAME, service, "Create", "gap_sms", 0, 10);
-                    SdkMessageStep(ASSEMBLY_NAME, THIRD_PLUGIN_TYPE_NAME, service, "Publish", "", 1, 40);
-                    SdkMessageStep(ASSEMBLY_NAME, THIRD_PLUGIN_TYPE_NAME, service, "PublishAll", "", 1, 40);
-                    */
                   }
               }
               else
               {
                   if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
                   {
-
                       // verify if already exists 
                       Guid stepIdCreate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Create", entityLogicalName, 0, 40);
                       Guid stepIdUpdate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40,statusLogicaFieldName);
                   }
               }
-              
         }
         
         public Guid SdkMessageStep(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityName, int mode, int stage,string filteringattributes =null, string eventName="Create")
@@ -73,7 +61,22 @@ namespace ColorfullFlagIconDynamics365Engine
             if ((pluginTypeId != Guid.Empty && pluginTypeId != null) && (messageId != null && messageId != Guid.Empty))
                 {
                 Guid stepId = Guid.Empty;
+                if (eventName == "Update")
+                {
+                    
+
+                    var tempStep = GetSdkMessageStepId(messageId, pluginTypeId, service);
+                     var stepToUpdate = new Entity(tempStep.LogicalName, tempStep.Id);
+                    if (!string.IsNullOrEmpty(filteringattributes))
+                        stepToUpdate["filteringattributes"] = filteringattributes;
+                    service.Update(stepToUpdate);
+                    return tempStep.Id;
                 
+                }
+                else
+                {
+                    
+
                     Entity step = new Entity("sdkmessageprocessingstep");
                     step["name"] = pluginTypeName + ": " + messageName + " of " + entityName;
                     step["configuration"] = "";
@@ -93,17 +96,11 @@ namespace ColorfullFlagIconDynamics365Engine
                     {
                         step["sdkmessagefilterid"] = new EntityReference("sdkmessagefilter", messageFitlerId);
                     }
-                     
+
+                    stepId = service.Create(step);
+                    return stepId;
+                }
                 
-                    if (eventName == "Update")
-                    {
-                        var tempStep = GetSdkMessageStepId(messageId, pluginTypeId, service);
-                        service.Delete(tempStep.LogicalName, tempStep.Id);
-                        
-                    }
-               
-                stepId = service.Create(step);
-                return stepId;
 
             }
             return Guid.Empty;
