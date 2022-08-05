@@ -10,42 +10,140 @@ using Microsoft.Xrm.Sdk.Query;
 
 namespace ColorfullFlagIconDynamics365Engine
 {
-    public class Register : IPlugin
+    public class Register : Plugin
     {
         public const string ASSEMBLY_NAME = "ColorfullFlagIconDynamics365Engine";
         public const string GENARAL_LOGIC_PLUGIN_TYPE = "ColorfullFlagIconDynamics365Engine.FlagIconLogicExecutorCreateUpdate";
 
-        public void Execute(IServiceProvider serviceProvider)
+        public Register() : base(typeof(Register))
         {
-            IPluginExecutionContext context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
-            IOrganizationServiceFactory serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
-            IOrganizationService service = serviceFactory.CreateOrganizationService(context.UserId);
+            base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(20, "Create", "clfi_configurationentity", new Action<LocalPluginContext>(create)));
 
-            var currentEntity = context.InputParameters["Target"] as Entity; // Configuration Entity
+            base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(20, "Update", "clfi_configurationentity", new Action<LocalPluginContext>(update)));
 
-            var currentConfig = service.Retrieve(currentEntity.LogicalName, currentEntity.Id, new ColumnSet("clfi_entitylogicalname", "clfi_iconlogicalfieldname", "clfi_statuslogicalfieldname"));
-            var entityLogicalName = currentConfig.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
-            var iconLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_iconlogicalfieldname").ToLower();
-            var statusLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_statuslogicalfieldname").ToLower();
-            if (context.MessageName.ToUpper() == "UPDATE")
-            {
-                if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
-                {
-                    //Main function inside which other function has been called to add plugin step
-                    Guid stepId = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40, statusLogicaFieldName,"Update");
-                  }
-              }
-              else
-              {
-                  if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
-                  {
-                      // verify if already exists 
-                      Guid stepIdCreate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Create", entityLogicalName, 0, 40);
-                      Guid stepIdUpdate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40,statusLogicaFieldName);
-                  }
-              }
+            base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(10, "Delete", "clfi_configurationentity", new Action<LocalPluginContext>(delete)));
         }
-        
+        protected void create(LocalPluginContext localContext)
+        {
+            IPluginExecutionContext context = localContext.PluginExecutionContext;
+            
+            IOrganizationService service = localContext.OrganizationService;
+
+            try
+            {
+                var currentEntity = context.InputParameters["Target"] as Entity; // Configuration Entity
+
+
+                
+                  if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
+                    {
+                        string entityLogicalName = currentEntity.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
+                        string iconLogicaFieldName = currentEntity.GetAttributeValue<string>("clfi_iconlogicalfieldname").ToLower();
+                        string statusLogicaFieldName = currentEntity.GetAttributeValue<string>("clfi_statuslogicalfieldname").ToLower();
+                        
+                        
+
+                        // verify if already exists 
+                        if(configurationExists(entityLogicalName, service))
+                        {
+                            throw new InvalidPluginExecutionException("ERROR : The is already a configuration involving the same entity logical name");
+                        }
+                        else
+                        {
+                            
+                            Guid stepIdCreate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Create", entityLogicalName, 0, 40);
+                            Guid stepIdUpdate = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40, statusLogicaFieldName);
+                        } 
+                    }
+               
+            }
+            catch (InvalidPluginExecutionException ex)
+            {
+                throw ex;
+            }
+        }
+        protected void update(LocalPluginContext localContext)
+        {
+            IPluginExecutionContext context = localContext.PluginExecutionContext;
+
+            IOrganizationService service = localContext.OrganizationService;
+
+            try
+            {
+                var currentEntity = context.InputParameters["Target"] as Entity; // Configuration Entity
+
+
+                
+                    var currentConfig = service.Retrieve(currentEntity.LogicalName, currentEntity.Id, new ColumnSet("clfi_entitylogicalname", "clfi_iconlogicalfieldname", "clfi_statuslogicalfieldname"));
+                    var entityLogicalName = currentConfig.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
+                    var iconLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_iconlogicalfieldname").ToLower();
+                    var statusLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_statuslogicalfieldname").ToLower();
+                    if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
+                    {
+                        //Main function inside which other function has been called to add plugin step
+                        Guid stepId = SdkMessageStep(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName, 0, 40, statusLogicaFieldName, "Update");
+                    }
+                
+               
+            }
+            catch (InvalidPluginExecutionException ex)
+            {
+                throw ex;
+            }
+        }
+        protected void delete(LocalPluginContext localContext)
+        {
+            IPluginExecutionContext context = localContext.PluginExecutionContext;
+
+            IOrganizationService service = localContext.OrganizationService;
+
+            try
+            {
+                var currentEntity = (EntityReference)context.InputParameters["Target"] ; // Configuration Entity
+                var currentConfig = service.Retrieve(currentEntity.LogicalName, currentEntity.Id, new ColumnSet("clfi_entitylogicalname", "clfi_iconlogicalfieldname", "clfi_statuslogicalfieldname"));
+
+
+                string entityLogicalName = currentConfig.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
+                    deleteConfiguration(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Create", entityLogicalName);
+                    deleteConfiguration(ASSEMBLY_NAME, GENARAL_LOGIC_PLUGIN_TYPE, service, "Update", entityLogicalName);
+            }
+            catch (InvalidPluginExecutionException ex)
+            {
+                throw ex;
+            }
+        }
+        private static bool configurationExists(string entityLogicalName, IOrganizationService service)
+        {
+            QueryExpression queryConfig = new QueryExpression("clfi_configurationentity");
+            queryConfig.Criteria = new FilterExpression
+            {
+                Conditions =
+                            {
+                                new ConditionExpression
+                                {
+                                  AttributeName = "clfi_entitylogicalname",
+                                  Operator = ConditionOperator.Equal,
+                                  Values = { entityLogicalName }
+                                 },
+                             }
+            };
+            EntityCollection configurations = service.RetrieveMultiple(queryConfig);
+
+
+            // verify if already exists 
+            if (configurations.Entities.Count > 0)
+                return true;
+
+            return false;
+        }
+        private static void deleteConfiguration(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityLogicalName)
+        {
+            Guid pluginTypeId = GetPluginTypeId(assemblyName, pluginTypeName, service);
+            Guid messageId = GetSdkMessageId(messageName, service);
+            var stepToDelete =  GetSdkMessageStepId(messageId, pluginTypeId,entityLogicalName, service);
+            service.Delete(stepToDelete.LogicalName, stepToDelete.Id);
+
+        }
         public Guid SdkMessageStep(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityName, int mode, int stage,string filteringattributes =null, string eventName="Create")
         {
             Guid pluginTypeId = GetPluginTypeId(assemblyName, pluginTypeName, service);
@@ -65,7 +163,7 @@ namespace ColorfullFlagIconDynamics365Engine
                 {
                     
 
-                    var tempStep = GetSdkMessageStepId(messageId, pluginTypeId, service);
+                    var tempStep = GetSdkMessageStepId(messageId,  pluginTypeId, entityName, service);
                      var stepToUpdate = new Entity(tempStep.LogicalName, tempStep.Id);
                     if (!string.IsNullOrEmpty(filteringattributes))
                         stepToUpdate["filteringattributes"] = filteringattributes;
@@ -246,7 +344,7 @@ namespace ColorfullFlagIconDynamics365Engine
             }
         }
 
-        public static Entity GetSdkMessageStepId(Guid sdkmessageid, Guid pluginTypeId, IOrganizationService service)
+        public static Entity GetSdkMessageStepId(Guid sdkmessageid, Guid pluginTypeId, string entityLogicalName , IOrganizationService service)
         {
             try
             {
@@ -269,7 +367,14 @@ namespace ColorfullFlagIconDynamics365Engine
                                                  AttributeName = "plugintypeid",
                                                 Operator = ConditionOperator.Equal,
                                                 Values = { pluginTypeId }
-                                            }
+                                            },
+                                            new ConditionExpression
+                                            {
+                                                AttributeName = "name",
+                                                Operator = ConditionOperator.Like,
+                                                Values = { "%" + entityLogicalName +"%" }
+                                            },
+
                                         }
                 };
 

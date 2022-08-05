@@ -94,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FlagIconLogicExecutorCreateUpdate.cs" />
+    <Compile Include="Plugin.cs" />
     <Compile Include="Register.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
