@@ -74,7 +74,7 @@ namespace ColorfullFlagIconDynamics365Engine
                             //4 if yes, proced to convert the icon value on the value type of entityimage 
                             foreach (var icoStatusRecord in IconStatusEntities.Entities)
                             {
-                                if(icoStatusRecord.GetAttributeValue<int>("clfi_statusvalue") == currentEntity.GetAttributeValue<OptionSetValue>(statusLogicaFieldName).Value)
+                                if(currentEntity.GetAttributeValue<OptionSetValue>(statusLogicaFieldName)!= null && icoStatusRecord.GetAttributeValue<int>("clfi_statusvalue") == currentEntity.GetAttributeValue<OptionSetValue>(statusLogicaFieldName).Value)
                                 {
                                     var entityToUpdate = new Entity(currentEntity.LogicalName, currentEntity.Id);
                                     //PB

@@ -22,6 +22,9 @@ namespace ColorfullFlagIconDynamics365Engine
             base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(20, "Update", "clfi_configurationentity", new Action<LocalPluginContext>(update)));
 
             base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(10, "Delete", "clfi_configurationentity", new Action<LocalPluginContext>(delete)));
+
+            base.RegisteredEvents.Add(new Tuple<int, string, string, Action<LocalPluginContext>>(40, "Update", "clfi_iconstatusconfiguration", new Action<LocalPluginContext>(bulkUpdateStatusIcon)));
+
         }
         protected void create(LocalPluginContext localContext)
         {
@@ -112,6 +115,14 @@ namespace ColorfullFlagIconDynamics365Engine
                 throw ex;
             }
         }
+        private static void deleteConfiguration(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityLogicalName)
+        {
+            Guid pluginTypeId = GetPluginTypeId(assemblyName, pluginTypeName, service);
+            Guid messageId = GetSdkMessageId(messageName, service);
+            var stepToDelete = GetSdkMessageStepId(messageId, pluginTypeId, entityLogicalName, service);
+            service.Delete(stepToDelete.LogicalName, stepToDelete.Id);
+
+        }
         private static bool configurationExists(string entityLogicalName, IOrganizationService service)
         {
             QueryExpression queryConfig = new QueryExpression("clfi_configurationentity");
@@ -136,12 +147,127 @@ namespace ColorfullFlagIconDynamics365Engine
 
             return false;
         }
-        private static void deleteConfiguration(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityLogicalName)
+        private static void bulkUpdateStatusIcon(LocalPluginContext localContext)
         {
-            Guid pluginTypeId = GetPluginTypeId(assemblyName, pluginTypeName, service);
-            Guid messageId = GetSdkMessageId(messageName, service);
-            var stepToDelete =  GetSdkMessageStepId(messageId, pluginTypeId,entityLogicalName, service);
-            service.Delete(stepToDelete.LogicalName, stepToDelete.Id);
+            IPluginExecutionContext context = localContext.PluginExecutionContext;
+
+            IOrganizationService service = localContext.OrganizationService;
+
+            try
+            {   Entity imageEntity = null;
+                if (context.PreEntityImages.Contains("PreImage"))
+                {
+                    imageEntity = context.PreEntityImages["PreImage"];
+                }
+                var tempCurrent = context.InputParameters["Target"] as Entity;
+                var currentEntity = service.Retrieve(tempCurrent.LogicalName, tempCurrent.Id, new ColumnSet("clfi_statusvalue", "clfi_icon")); // Configuration Icon Status Entity
+                var currentConfig = service.Retrieve("clfi_configurationentity", imageEntity.GetAttributeValue<EntityReference>("clfi_targetentity").Id,new ColumnSet(true));
+                var entityLogicalName = currentConfig.GetAttributeValue<string>("clfi_entitylogicalname").ToLower();
+                var iconLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_iconlogicalfieldname").ToLower();
+                var statusLogicaFieldName = currentConfig.GetAttributeValue<string>("clfi_statuslogicalfieldname").ToLower();
+                
+                if (currentEntity.Contains("clfi_icon") && currentEntity.Contains("clfi_statusvalue"))
+                {
+                    var statusValue = currentEntity.GetAttributeValue<int>("clfi_statusvalue");
+                    var newIcon = currentEntity["clfi_icon"] as byte[];
+
+                    var queryEntityLogicalName = new QueryExpression(entityLogicalName);
+                    queryEntityLogicalName.ColumnSet = new ColumnSet(statusLogicaFieldName, iconLogicaFieldName);
+                    queryEntityLogicalName.Criteria = new FilterExpression
+                    {
+                        Conditions =
+                              {
+                                    new ConditionExpression
+                                    {
+                                      AttributeName = statusLogicaFieldName, //Configuration Entity  : lookup
+                                      Operator = ConditionOperator.Equal,
+                                      Values = { statusValue }
+                                     },
+                               }
+                    };
+                    List<Entity> logicalNameEntities = new List<Entity>();
+                    getRecordByQuery(service,queryEntityLogicalName, ref logicalNameEntities);
+
+
+                    var multipleRequest = new ExecuteMultipleRequest()
+                    {
+                        // Assign settings that define execution behavior: continue on error, return responses. 
+                        Settings = new ExecuteMultipleSettings()
+                        {
+                            ContinueOnError = true,
+                            ReturnResponses = true
+                        },
+                        // Create an empty organization request collection.
+                        Requests = new OrganizationRequestCollection()
+                    };
+
+                    // Add a UpdateRequest for each entity to the request collection.
+                    ExecuteMultipleResponse multipleResponse = null;
+                    foreach (var entity in logicalNameEntities)
+                    {
+                        UpdateRequest updateRequest = new UpdateRequest();
+                        entity.Attributes.Remove(statusLogicaFieldName);
+                        entity[iconLogicaFieldName] = newIcon;
+                        updateRequest.Target = entity;
+                        multipleRequest.Requests.Add(updateRequest);
+
+                        if (multipleRequest
+                            .Requests.Count == 1000)
+                        {
+
+                            multipleResponse = (ExecuteMultipleResponse)service.Execute(multipleRequest);
+                            multipleRequest.Requests = new OrganizationRequestCollection();
+                           
+                        }
+                    }
+
+                    // Execute all the requests in the request collection using a single web method call.
+                    if (multipleRequest.Requests.Count > 0)
+                    {
+                        multipleResponse = (ExecuteMultipleResponse)service.Execute(multipleRequest);
+                        
+                    }
+
+                }
+
+
+            }
+            catch (InvalidPluginExecutionException ex)
+            {
+                throw ex;
+            }
+        }
+        public static void getRecordByQuery(IOrganizationService service, QueryExpression query, ref List<Entity> result)
+        {
+            
+            
+            int queryCount = 500;
+            int pageNumber = 1;
+
+            query.PageInfo = new PagingInfo();
+            query.PageInfo.Count = queryCount;
+            query.PageInfo.PageNumber = pageNumber;
+
+            query.PageInfo.PagingCookie = null;
+
+            while (true)
+            {
+                var queryRef = service.RetrieveMultiple(query);
+                if (queryRef.Entities != null)
+                {
+                    result.AddRange(queryRef.Entities);
+                }
+
+                if (queryRef.MoreRecords)
+                {
+                    query.PageInfo.PageNumber++;
+                    query.PageInfo.PagingCookie = queryRef.PagingCookie;
+                }
+                else
+                {
+                    break;
+                }
+            }
 
         }
         public Guid SdkMessageStep(string assemblyName, string pluginTypeName, IOrganizationService service, string messageName, string entityName, int mode, int stage,string filteringattributes =null, string eventName="Create")
