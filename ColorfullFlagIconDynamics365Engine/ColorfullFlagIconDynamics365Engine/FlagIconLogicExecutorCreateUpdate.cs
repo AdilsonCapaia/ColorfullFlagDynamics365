@@ -85,15 +85,28 @@ namespace ColorfullFlagIconDynamics365Engine
                                 }
                             }
                         }
+                        else
+                        {
+                            // If the status does note exist or is null
+                            var entityToUpdate = new Entity(currentEntity.LogicalName, currentEntity.Id);
+                            //PB
+                            entityToUpdate[iconLogicaFieldName] = new byte[]{ };
+                            service.Update(entityToUpdate);
+                        }
                     }
                     else
                     {
-                        throw new InvalidPluginExecutionException("The 'Icon Logical field name' : " + iconLogicaFieldName + " or 'Status logical field name' : " + statusLogicaFieldName + " do not exis on the Entity logical name : " + currentEntity.LogicalName);
+                        // If the status does note exist or is null
+                        var entityToUpdate = new Entity(currentEntity.LogicalName, currentEntity.Id);
+                        //PB
+                        entityToUpdate[iconLogicaFieldName] = new byte[] { };
+                        service.Update(entityToUpdate);
+                        //throw new InvalidPluginExecutionException("The 'Icon Logical field name' : " + iconLogicaFieldName + " or 'Status logical field name' : " + statusLogicaFieldName + " do not exis on the Entity logical name : " + currentEntity.LogicalName);
                     }
                 }
                 else
                 {
-                    throw new InvalidPluginExecutionException("There is not 'Configuration entity' for the entity :  " + currentEntity.LogicalName);
+                    //throw new InvalidPluginExecutionException("There is not 'Configuration entity' for the entity :  " + currentEntity.LogicalName);
                 }
 
             }
